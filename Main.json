@@ -1,0 +1,136 @@
+pragma solidity ^0.4.17;
+
+import "./Session.sol";
+
+
+contract Main {
+
+    struct IParticipant {
+        address accountsAddress;
+        string email;
+        string fullName;
+        uint numberSession; // so phien dau gia da tham gia
+        uint deviation; // chenh lech
+    }
+
+    address public admin; // admin adddress;
+    IParticipant[] participants; /// mang luu nguoi thamm gia
+    mapping( address => IParticipant) public mapParticipant;
+    address[] public sessionArray;
+
+    function Main() public {
+        admin = msg.sender;
+    }
+
+    modifier onlyAdmin { // only Admin
+        require(msg.sender == admin, "not is Admin");
+        _;
+    }
+    modifier onlyState(uint _numberSession, uint _state) {   // onnlyState
+
+        address _addressSession = sessionArray[_numberSession];
+        Session _sessionPresent = Session(_addressSession);
+        if( _sessionPresent.getState() != _state) {
+            revert("Session state not is regis ");
+        }
+        _;
+    }
+
+    function register(string _fullName,string _email) public {
+
+        IParticipant memory _person = IParticipant(msg.sender,_email,_fullName,0,0);
+        mapParticipant[msg.sender] = _person;
+
+    }
+
+    function changeRegister(uint _numberOfSession) {
+        address _addressSession = sessionArray[_numberOfSession];
+        Session _sessionPresent = Session(_addressSession);
+        _sessionPresent.changeStateToRegister();
+    }
+
+    function regisSession(uint _numberSession ) public onlyState(_numberSession,1) {
+
+        require(_numberSession < sessionArray.length,"number Session not exit");
+        require( mapParticipant[msg.sender].accountsAddress != address(0x0),"person is not registered");
+
+        address _addressSession = sessionArray[_numberSession];
+        Session _sessionPresent = Session(_addressSession);
+        _sessionPresent.addParticipant(msg.sender);
+
+    }
+    function changeVote(uint _numberOfSession) {
+        address _addressSession = sessionArray[_numberOfSession];
+        Session _sessionPresent = Session(_addressSession);
+        _sessionPresent.changeStateVote();
+    }
+
+
+    function vote(uint _sessionVote, address _personVote,uint _numberVote) public onlyState(_sessionVote,2) {
+        address _addressSession = sessionArray[_sessionVote];
+        Session _sessionPresent = Session(_addressSession);
+        require(_sessionPresent.personJoin(_personVote),"person is not registered" );
+        _sessionPresent.voting(_personVote,_numberVote);
+    }
+
+   function changeClosing(uint _numberOfSession) {
+        address _addressSession = sessionArray[_numberOfSession];
+        Session _sessionPresent = Session(_addressSession);
+        _sessionPresent.changeStateClosing();
+    }
+
+    function endSession( uint _numberOfSession ) public onlyState(_numberOfSession,3) {
+        address _addressSession = sessionArray[_numberOfSession];
+        Session _sessionPresent = Session(_addressSession);
+        _sessionPresent.Caculate();
+    }
+
+
+
+
+    function updateAdmin(
+        address _accountAddress, 
+        string memory _email,
+        string memory _fullName,
+        uint _numberSession,
+        uint _deviation
+    ) public onlyAdmin {
+        IParticipant memory _person = IParticipant( _accountAddress, _email, _fullName, _numberSession, _deviation);
+        mapParticipant[msg.sender] = _person;
+    }
+
+
+    function updateUser(string memory _fullName, string memory _email) public {
+        mapParticipant[msg.sender].fullName = _fullName;
+        mapParticipant[msg.sender].email = _email;
+    }
+
+    function createSession(string memory _productName, string memory _productDescription) public onlyAdmin {
+        Session _sessionPresent = new Session(address(this),_productName,_productDescription);
+    }
+
+    function addSession(address session ) public {
+        sessionArray.push(session);
+    }
+
+    function getDeviation(address _person) external returns(uint) {
+        return mapParticipant[_person].deviation;
+    }
+
+    function setDeviation(address _person, uint _newDeviation ) external {
+        mapParticipant[_person].deviation = _newDeviation; 
+    }
+
+    function getNumberSession(address _person) external returns(uint) {
+        return mapParticipant[_person].numberSession; 
+    }
+
+    function setNumberSession(address _person) external {
+        mapParticipant[_person].numberSession +=1;
+    }
+
+    function updateLastSession(address _person, uint _numberSession, uint _deviation) external {
+        mapParticipant[_person].numberSession = _numberSession;
+        mapParticipant[_person].deviation = _deviation;
+    }
+}
